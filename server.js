@@ -15,21 +15,31 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cookieParser());
 
-const allowedOrigins = [
-    'http://localhost:5173',
-    process.env.FRONTEND_URL
-].filter(Boolean);
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
+    .split(",")
+    .map((o) => o.trim());
 
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-}));
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // Allow requests with no origin (like curl, postman)
+            if (!origin) return callback(null, true);
+
+            // If '*' is specified in env, allow ALL origins dynamically
+            if (allowedOrigins.includes("*")) {
+                return callback(null, true);
+            }
+
+            // Otherwise, check for exact match
+            if (allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error(`CORS: origin ${origin} not allowed`));
+            }
+        },
+        credentials: true, // needed to send or receive HTTP-only cookies
+    })
+);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
